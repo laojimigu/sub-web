@@ -36,8 +36,13 @@
                     style="width: 100%"
                     v-model="form.customBackend"
                     :fetch-suggestions="backendSearch"
+                    @blur="onBlur"
+                    @select="onSelect"
                     placeholder="动动小手，（建议）自行搭建后端服务。例：http://127.0.0.1:25500/sub?"
                   >
+                    <template slot-scope="{item}">
+                      {{ item.label + '&nbsp;&nbsp;' + item.value }}
+                    </template>
                     <el-button slot="append" @click="gotoGayhub" icon="el-icon-link">前往项目仓库</el-button>
                   </el-autocomplete>
                 </el-form-item>
@@ -296,7 +301,7 @@ export default {
           ClashR: "clashr",
           Surge2: "surge&ver=2",
         },
-        backendOptions: [{ value: "http://127.0.0.1:25500/sub?" }],
+        backendOptions: [{ label:"本站后端", value: "https://sub.lc.mk/sub?" }, { label:"本机自建", value: "http://127.0.0.1:25500/sub?" }],
         remoteConfig: [
           {
             label: "universal",
@@ -374,6 +379,7 @@ export default {
         sourceSubUrl: "",
         clientType: "",
         customBackend: "",
+        lastBackend:"",
         remoteConfig: "",
         excludeRemarks: "",
         includeRemarks: "",
@@ -431,6 +437,12 @@ export default {
     this.getBackendVersion();
   },
   methods: {
+    onSelect() {
+      this.getBackendVersion();
+    },
+    onBlur() {
+      this.getBackendVersion();
+    },
     onCopy() {
       this.$message.success("Copied!");
     },
@@ -727,14 +739,31 @@ export default {
     createFilter(queryString) {
       return candidate => {
         return (
-          candidate.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0
+          candidate.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0 || candidate.label.toLowerCase().indexOf(queryString.toLowerCase()) === 0
         );
       };
     },
     getBackendVersion() {
+      let backend =
+        this.form.customBackend === ""
+          ? defaultBackend
+          : this.form.customBackend;
+      if(this.form.lastBackend === backend) return;
+
+      this.backendVersion = "";
+      this.form.lastBackend =  backend;
+      let bhost = '';
+      try{
+        bhost = new URL(backend).origin;
+      }catch(err){
+        if(err.message == 'Invalid scheme'){
+          bhost = new URL('https://' + backend).origin;
+        } else throw(err);
+      }
+
       this.$axios
         .get(
-          defaultBackend.substring(0, defaultBackend.length - 5) + "/version"
+          bhost + "/version"
         )
         .then(res => {
           this.backendVersion = res.data.replace(/backend\n$/gm, "");
